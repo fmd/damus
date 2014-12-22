@@ -137,6 +137,7 @@ import (
 	"strconv"
 	"errors"
 	"fmt"
+	"os"
 )
 
 var version string = "0.0.0"
@@ -230,7 +231,11 @@ func main() {
 	if args["init"].(bool) {
 		err = a.Init()
 	} else if args["test"].(bool) {
-		err = a.Test()
+		code, err := a.Test()
+		if err != nil {
+			fmt.Println(err)
+		}
+		os.Exit(code)
 	} else if args["flush"].(bool) {
 		var chain Chain
 		if args["--build"] != nil {

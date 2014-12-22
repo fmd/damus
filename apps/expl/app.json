@@ -1,11 +1,11 @@
 {
     "builds": ["base", "app", "test"],
 
-    "committer": { "name":  "build", "cmd": "/app/quick-build" },
+    "committer": { "name":  "build", "cmd": ["sh", "-c", "\"/app/quick-build\""] },
 
     "testers": [
-        { "name":  "alpha", "cmd": "/app/test-alpha" },
-        { "name":  "beta",  "cmd": "/app/test-beta" },
-        { "name":  "main",  "cmd": "/app/test-main" }
+        { "name":  "alpha", "cmd": ["sh", "-c", "\"/app/test-alpha\""] },
+        { "name":  "beta",  "cmd": ["sh", "-c", "\"/app/test-beta\""] },
+        { "name":  "main",  "cmd": ["sh", "-c", "\"/app/test-main\""] }
     ]
 }

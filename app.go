@@ -61,42 +61,34 @@ func (a *App) Flush(builds Chain) error {
     return nil
 }
 
-func (a *App) Test() error {
+func (a *App) Test() (int, error) {
     b, err := NewBuilder(a.Config.Endpoint, a.Name)
     if err != nil {
-      return err
+      return 1, err
     }
 
     final := a.Builds.Final().String()
     exists, err := b.ImageExists(fmt.Sprintf("%s-%s", a.Name, final))
     if err != nil {
-        return err
+        return 1, err
     }
 
     if !exists {
-        fmt.Println("OKIE DOKE")
         st := fmt.Sprintf("Image '%s-%s' doesn't exist. Try running `damus init` first.", a.Name, final)
-        return errors.New(st)
+        return 1, errors.New(st)
     }
 
     t, err := NewTester(a.Config.Endpoint, a.Name, final, a.Config.InspectFrequency)
     if err != nil {
-      return err
+      return 1, err
     }
 
     err = t.Commit(&a.Committer)
     if err != nil {
-        return err
+        return 1, err
     }
 
-    for _, s := range a.Tests {
-      err = t.Test(&s)
-      if err != nil {
-        return err
-      }
-    }
-
-    return nil
+    return t.Test(a.Tests)
 }
 
 func (a *App) Parse() error {
