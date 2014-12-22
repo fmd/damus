@@ -1,17 +1,19 @@
 package main
 
 import (
+    "fmt"
     "errors"
     "github.com/fsouza/go-dockerclient"
 )
 
 type Tester struct {
-    Client *docker.Client
-    Image string
-    Build string
+    Client           *docker.Client
+    Image            string
+    Build            string
+    InspectFrequency int
 }
 
-func NewTester(endpoint string, image string, build string) (*Tester, error) {
+func NewTester(endpoint string, image string, build string, freq int) (*Tester, error) {
     c, err := docker.NewClient(endpoint)
     if err != nil {
         return nil, err
@@ -21,16 +23,67 @@ func NewTester(endpoint string, image string, build string) (*Tester, error) {
         Client: c,
         Image: image,
         Build: build,
+        InspectFrequency: freq,
     }
 
     return t, nil
 }
 
-func (t *Tester) Commit() error {
-    return nil
+func (t *Tester) Check(s *Test) (int, error) {
+    for {
+        c, err := t.Client.InspectContainer(s.Container)
+        if err != nil {
+            return 1, err
+        }
+
+        if c.ExitCode != 0 {
+            return c.ExitCode, nil
+        }
+
+        if !c.State.Running {
+            return 0, nil
+        }
+
+        time.Sleep(t.InspectFrequency)
+    }
 }
 
-func (t *Tester) Test() error {
+func (t *Tester) SaveImage(s *Test) error {
+    opts := docker.CommitContainerOptions{
+        Container: s.Container,
+        Repository: s.Image,
+        Tag: "latest",
+    }
+    _, err := t.Client.CommitContainer(opts)
+    if err != nil {
+        return err
+    }
+}
+
+func (t *Tester) Commit(s *Test) error {
+    err := t.Create(s)
+    if err != nil {
+        return err
+    }
+
+    err = t.Start(s)
+    if err != nil {
+        return err
+    }
+
+    code, err := t.Check(s)
+    if code != 0 {
+        return errors.New("Commit action quit with non-zero exit code. Aborting.")
+    }
+
+    err = t.SaveImage(s)
+    if err != nil {
+        return err
+    }
+}
+
+func (t *Tester) Test(s *Test) error {
+    fmt.Println(s)
     return nil
 }
 
@@ -42,7 +95,7 @@ func (t *Tester) Create(s *Test) error {
 
 func (t *Tester) Start(s *Test) error {
     if s.Container == nil {
-        return errors.New("A container has not been created for this Tester.")
+        return errors.New("A container has not been created for this test.")
     }
     return t.Client.StartContainer(s.Container.ID, &docker.HostConfig{})
 }

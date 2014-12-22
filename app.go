@@ -11,18 +11,12 @@ import (
 var AppJson string = "app.json"
 var AppDir  string = "apps"
 
-type AppConfig struct {
-    OutputDir string
-}
-
 type App struct {
-    Name      string    `json:"name"`
-    Image     string    `json:"image"`
     Committer Test      `json:"committer"`
     Tests     []Test    `json:"testers"`
     Builds    Chain     `json:"builds"`
 
-    AppConfig AppConfig `json:"-"`
+    Name      string    `json:"-"`
     Config    Config    `json:"-"`
 }
 
@@ -40,7 +34,7 @@ func (a *App) Init() error {
 }
 
 func (a *App) Build(builds Chain) error {
-    b, err := NewBuilder(a.Config.Endpoint, a.Image)
+    b, err := NewBuilder(a.Config.Endpoint, a.Name)
     if err != nil {
         return err
     }
@@ -54,7 +48,7 @@ func (a *App) Build(builds Chain) error {
 }
 
 func (a *App) Flush(builds Chain) error {
-    b, err := NewBuilder(a.Config.Endpoint, a.Image)
+    b, err := NewBuilder(a.Config.Endpoint, a.Name)
     if err != nil {
         return err
     }
@@ -68,7 +62,7 @@ func (a *App) Flush(builds Chain) error {
 }
 
 func (a *App) Test() error {
-    b, err := NewBuilder(a.Config.Endpoint, a.Image)
+    b, err := NewBuilder(a.Config.Endpoint, a.Name)
     if err != nil {
       return err
     }
@@ -78,18 +72,28 @@ func (a *App) Test() error {
     if err != nil {
         return err
     }
+
     if !exists {
-        st := fmt.Sprintf("Image '%s-%s' doesn't exist. Try running `damus init` first.", a.Image, final)
+        fmt.Println("OKIE DOKE")
+        st := fmt.Sprintf("Image '%s-%s' doesn't exist. Try running `damus init` first.", a.Name, final)
         return errors.New(st)
     }
 
-    t, err := NewTester(a.Config.Endpoint, a.Image, final)
+    t, err := NewTester(a.Config.Endpoint, a.Name, final, a.Config.InspectFrequency)
     if err != nil {
       return err
     }
 
+    err = t.Commit(&a.Committer)
+    if err != nil {
+        return err
+    }
+
     for _, s := range a.Tests {
-      t.Create(&s)
+      err = t.Test(&s)
+      if err != nil {
+        return err
+      }
     }
 
     return nil

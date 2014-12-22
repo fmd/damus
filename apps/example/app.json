@@ -1,6 +1,4 @@
 {
-    "name": "damus-example",
-    "image": "expl",
     "builds": ["base", "app", "test"],
 
     "committer": { "name":  "build", "cmd": "/app/quick-build" },
