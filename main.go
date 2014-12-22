@@ -3,9 +3,7 @@ package main
 import (
 	"github.com/docopt/docopt-go"
 	"strconv"
-	"errors"
 	"fmt"
-	"os"
 )
 
 var version string = "0.0.0"
@@ -94,29 +92,16 @@ func main() {
 	}
 
 	if args["init"].(bool) {
-		err = a.Init()
+		a.Init()
 	} else if args["test"].(bool) {
-		code, err := a.Test()
-		if err != nil {
-			fmt.Println(err)
-		}
-		os.Exit(code)
+		a.Test()
 	} else if args["flush"].(bool) {
 		var chain Chain
 		if args["--build"] != nil {
-			chain, err = a.Builds.Get(args["--build"].(string))
+			chain = a.Builds.Get(args["--build"].(string))
 		} else {
 			chain = a.Builds.Final()
 		}
-
-		if err == nil {
-			err = a.Flush(chain)
-		}
-	} else {
-		err = errors.New("Bad command!")
-	}
-
-	if err != nil {
-		panic(err)
+		a.Flush(chain)
 	}
 }

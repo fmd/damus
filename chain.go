@@ -1,13 +1,8 @@
 package main
 
-import (
-    "errors"
-    "fmt"
-)
-
 type Chain []string
 
-func (c Chain) Get(link string) (Chain, error) {
+func (c Chain) Get(link string) Chain{
     p := -1
     for i, l := range c {
         if l == link {
@@ -17,10 +12,10 @@ func (c Chain) Get(link string) (Chain, error) {
     }
 
     if p == -1 {
-        return nil, errors.New(fmt.Sprintf("Could not find build `%s` in chain.", link))
+        return Chain{}
     }
 
-    return c[p:], nil
+    return c[p:]
 }
 
 func (c Chain) Final() Chain {

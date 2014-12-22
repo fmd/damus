@@ -1,11 +1,13 @@
 package main
 
 import (
+    log "github.com/Sirupsen/logrus"
     "encoding/json"
     "path/filepath"
     "io/ioutil"
     "errors"
     "fmt"
+    "os"
 )
 
 var AppJson string = "app.json"
@@ -20,75 +22,79 @@ type App struct {
     Config    Config    `json:"-"`
 }
 
-func (a *App) Init() error {
-    var err error
-    err = a.Flush(a.Builds)
-    if err != nil {
-        return err
-    }
-    err = a.Build(a.Builds)
-    if err != nil {
-        return err
-    }
-    return nil
-}
-
-func (a *App) Build(builds Chain) error {
+func (a *App) Build(builds Chain) {
     b, err := NewBuilder(a.Config.Endpoint, a.Name)
     if err != nil {
-        return err
+        log.Error(err.Error())
+        os.Exit(1)
     }
     for _, build := range a.Builds {
         err = b.Build(build)
         if err != nil {
-            return err
+            log.Error(err.Error())
+            os.Exit(1)
         }
     }
-    return nil
 }
 
-func (a *App) Flush(builds Chain) error {
+func (a *App) Init() {
+    a.Flush(a.Builds)
+    a.Build(a.Builds)
+}
+
+func (a *App) Flush(builds Chain) {
     b, err := NewBuilder(a.Config.Endpoint, a.Name)
     if err != nil {
-        return err
+        log.Error(err.Error())
+        os.Exit(1)
     }
     for _, build := range builds {
         err = b.Remove(build)
         if err != nil {
-            return err
+            log.Error(err.Error())
+            os.Exit(1)
         }
     }
-    return nil
 }
 
-func (a *App) Test() (int, error) {
+func (a *App) Test() {
     b, err := NewBuilder(a.Config.Endpoint, a.Name)
     if err != nil {
-      return 1, err
+        log.Error(err.Error())
+        os.Exit(1)
     }
 
     final := a.Builds.Final().String()
     exists, err := b.ImageExists(fmt.Sprintf("%s-%s", a.Name, final))
     if err != nil {
-        return 1, err
+        log.Error(err.Error())
+        os.Exit(1)
     }
 
     if !exists {
         st := fmt.Sprintf("Image '%s-%s' doesn't exist. Try running `damus init` first.", a.Name, final)
-        return 1, errors.New(st)
+        log.Error(st)
+        os.Exit(1)
     }
 
     t, err := NewTester(a.Config.Endpoint, a.Name, final, a.Config.InspectFrequency)
     if err != nil {
-      return 1, err
+        log.Error(err.Error())
+        os.Exit(1)
     }
 
     err = t.Commit(&a.Committer)
     if err != nil {
-        return 1, err
+        log.Error(err.Error())
+        os.Exit(1)
     }
 
-    return t.Test(a.Tests)
+    code, err := t.Test(a.Tests)
+    if err != nil {
+        log.Error(err.Error())
+    }
+
+    os.Exit(code)
 }
 
 func (a *App) Parse() error {
