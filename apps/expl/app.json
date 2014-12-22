@@ -6,6 +6,6 @@
     "testers": [
         { "name":  "alpha", "cmd": "/app/alpha" },
         { "name":  "beta",  "cmd": "/app/beta" },
-        { "name":  "gamma", "cmd": "/app/gamma" }
+        { "name":  "main",  "cmd": "/app/main" }
     ]
 }
