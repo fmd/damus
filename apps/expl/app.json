@@ -4,8 +4,8 @@
     "committer": { "name":  "build", "cmd": "/app/quick-build" },
 
     "testers": [
-        { "name":  "alpha", "cmd": "/app/alpha" },
-        { "name":  "beta",  "cmd": "/app/beta" },
-        { "name":  "main",  "cmd": "/app/main" }
+        { "name":  "alpha", "cmd": "/app/test-alpha" },
+        { "name":  "beta",  "cmd": "/app/test-beta" },
+        { "name":  "main",  "cmd": "/app/test-main" }
     ]
 }
