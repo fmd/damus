@@ -1,0 +1,13 @@
+{
+    "name": "damus-example",
+    "image": "expl",
+    "builds": ["base", "app", "test"],
+
+    "committer": { "name":  "build", "cmd": "/app/quick-build" },
+
+    "testers": [
+        { "name":  "alpha", "cmd": "/app/alpha" },
+        { "name":  "beta",  "cmd": "/app/beta" },
+        { "name":  "gamma", "cmd": "/app/gamma" }
+    ]
+}

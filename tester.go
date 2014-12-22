@@ -34,7 +34,7 @@ func (t *Tester) Test() error {
     return nil
 }
 
-func (t *Tester) Create(s Test) error {
+func (t *Tester) Create(s *Test) error {
     var err error
     s.Container, err = t.Client.CreateContainer(s.Config(t.Image, t.Build))
     return err

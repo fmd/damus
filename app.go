@@ -79,10 +79,8 @@ func (a *App) Test() error {
         return err
     }
     if !exists {
-        err = b.Build(final)
-        if err != nil {
-            return err
-        }
+        st := fmt.Sprintf("Image '%s-%s' doesn't exist. Try running `damus init` first.", a.Image, final)
+        return errors.New(st)
     }
 
     t, err := NewTester(a.Config.Endpoint, a.Image, final)
@@ -91,7 +89,7 @@ func (a *App) Test() error {
     }
 
     for _, s := range a.Tests {
-      t.Create(s)
+      t.Create(&s)
     }
 
     return nil
