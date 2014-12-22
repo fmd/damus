@@ -2,6 +2,7 @@ package main
 
 import (
     "fmt"
+    "time"
     "errors"
     "github.com/fsouza/go-dockerclient"
 )
@@ -31,33 +32,34 @@ func NewTester(endpoint string, image string, build string, freq int) (*Tester, 
 
 func (t *Tester) Check(s *Test) (int, error) {
     for {
-        c, err := t.Client.InspectContainer(s.Container)
+        c, err := t.Client.InspectContainer(s.Container.ID)
         if err != nil {
             return 1, err
         }
 
-        if c.ExitCode != 0 {
-            return c.ExitCode, nil
+        if c.State.ExitCode != 0 {
+            return c.State.ExitCode, nil
         }
 
         if !c.State.Running {
             return 0, nil
         }
 
-        time.Sleep(t.InspectFrequency)
+        time.Sleep(time.Duration(t.InspectFrequency) * time.Millisecond)
     }
 }
 
 func (t *Tester) SaveImage(s *Test) error {
     opts := docker.CommitContainerOptions{
-        Container: s.Container,
-        Repository: s.Image,
+        Container: s.Container.ID,
+        Repository: s.Name,
         Tag: "latest",
     }
     _, err := t.Client.CommitContainer(opts)
     if err != nil {
         return err
     }
+    return nil
 }
 
 func (t *Tester) Commit(s *Test) error {
@@ -80,6 +82,8 @@ func (t *Tester) Commit(s *Test) error {
     if err != nil {
         return err
     }
+
+    return nil
 }
 
 func (t *Tester) Test(s *Test) error {

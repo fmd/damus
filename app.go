@@ -68,7 +68,7 @@ func (a *App) Test() error {
     }
 
     final := a.Builds.Final().String()
-    exists, err := b.ImageExists(final)
+    exists, err := b.ImageExists(fmt.Sprintf("%s-%s", a.Name, final))
     if err != nil {
         return err
     }

@@ -23,8 +23,6 @@ func (b *Builder) ImageExists(name string) (bool, error) {
     }
     fmt.Println(images)
     for _, image := range images {
-        fmt.Println(image)
-        fmt.Println(name)
         for _, t := range image.RepoTags {
             if strings.Split(t, ":")[0] == name {
                 return true, nil
