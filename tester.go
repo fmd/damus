@@ -4,6 +4,8 @@ import (
     "fmt"
     "time"
     "errors"
+    "hash/fnv"
+    "encoding/hex"
     "github.com/fsouza/go-dockerclient"
 )
 
@@ -11,11 +13,19 @@ type Tester struct {
     Client           *docker.Client
     Image            string
     Build            string
+    Stamp            string
     InspectFrequency int
 }
 
 func (t *Tester) FullName() string {
     return fmt.Sprintf("%s-%s", t.Image, t.Build)
+}
+
+func TimeHash() string {
+    h := fnv.New64a()
+    defer h.Reset()
+    h.Write([]byte(time.Now().String()))
+    return hex.EncodeToString(h.Sum(nil))
 }
 
 func NewTester(endpoint string, image string, build string, freq int) (*Tester, error) {
@@ -28,6 +38,7 @@ func NewTester(endpoint string, image string, build string, freq int) (*Tester, 
         Client: c,
         Image: image,
         Build: build,
+        Stamp: TimeHash(),
         InspectFrequency: freq,
     }
 
@@ -95,30 +106,40 @@ type Result struct {
     Error error
 }
 
-func (t *Tester) Test(s []Test) (int, error) {
-    results := make(chan Result, len(s))
+func (t *Tester) StartTest(test Test, results chan Result) {
+    go func(test Test, results chan Result) {
+        r := Result{
+            Code: 0,
+            Error: nil,
+        }
 
-    for _, test := range s {
         err := t.Create(&test)
         if err != nil {
-            return 1, err
+            r.Code = 1
+            r.Error = err
+            results <- r
+            return
         }
 
         err = t.Start(&test)
         if err != nil {
-            return 1, err
+            r.Code = 1
+            r.Error = err
+            results <- r
+            return
         }
 
-        go func(test Test, results chan Result) {
-            r := Result{
-                Code: 0,
-                Error: nil,
-            }
+        r.Code, r.Error = t.Check(&test)
+        results <- r
+        return
+    }(test, results)
+}
 
-            r.Code, r.Error = t.Check(&test)
+func (t *Tester) Test(s []Test) (int, error) {
+    results := make(chan Result, len(s))
 
-            results <-r
-        }(test, results)
+    for _, test := range s {
+        t.StartTest(test, results)
     }
 
     finishedTests := 0
@@ -141,7 +162,7 @@ func (t *Tester) Test(s []Test) (int, error) {
 
 func (t *Tester) Create(s *Test) error {
     var err error
-    s.Container, err = t.Client.CreateContainer(s.Config(t.Image, t.Build))
+    s.Container, err = t.Client.CreateContainer(s.Config(t.Image, t.Build, t.Stamp))
     return err
 }
 
