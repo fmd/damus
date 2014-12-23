@@ -23,7 +23,9 @@ type App struct {
 }
 
 func (a *App) Build(builds Chain) {
-    b, err := NewBuilder(a.Config.Endpoint, a.Name)
+    log.WithFields(log.Fields{"builds": builds}).Info("Building...")
+
+    b, err := NewBuilder(a.Config.Endpoint, a.Name, a.Config.Quiet)
     if err != nil {
         log.Error(err.Error())
         os.Exit(1)
@@ -35,6 +37,8 @@ func (a *App) Build(builds Chain) {
             os.Exit(1)
         }
     }
+
+    log.WithFields(log.Fields{"builds": builds}).Info("Finished Building.")
 }
 
 func (a *App) Init() {
@@ -42,8 +46,38 @@ func (a *App) Init() {
     a.Build(a.Builds)
 }
 
+func (a *App) Fix() {
+    log.Info("Fixing...")
+
+    b, err := NewBuilder(a.Config.Endpoint, a.Name, a.Config.Quiet)
+    if err != nil {
+        log.Error(err.Error())
+        os.Exit(1)
+    }
+
+    for _, build := range a.Builds {
+        exists, err := b.ImageExists(fmt.Sprintf("%s-%s", a.Name, build))
+        if err != nil {
+            log.Error(err.Error())
+            os.Exit(1)
+        }
+
+        if !exists {
+            err = b.Build(build)
+            if err != nil {
+                log.Error(err.Error())
+                os.Exit(1)
+            }
+        }
+    }
+
+    log.Info("Finished Fixing.")
+}
+
 func (a *App) Flush(builds Chain) {
-    b, err := NewBuilder(a.Config.Endpoint, a.Name)
+    log.WithFields(log.Fields{"builds": builds}).Info("Flushing...")
+
+    b, err := NewBuilder(a.Config.Endpoint, a.Name, a.Config.Quiet)
     if err != nil {
         log.Error(err.Error())
         os.Exit(1)
@@ -55,10 +89,16 @@ func (a *App) Flush(builds Chain) {
             os.Exit(1)
         }
     }
+
+    log.WithFields(log.Fields{"builds": builds}).Info("Finished Flushing.")
 }
 
 func (a *App) Test() {
-    b, err := NewBuilder(a.Config.Endpoint, a.Name)
+    a.Fix()
+
+    log.WithFields(log.Fields{"tests": a.Tests}).Info("Testing...")
+
+    b, err := NewBuilder(a.Config.Endpoint, a.Name, a.Config.Quiet)
     if err != nil {
         log.Error(err.Error())
         os.Exit(1)
@@ -94,6 +134,7 @@ func (a *App) Test() {
         log.Error(err.Error())
     }
 
+    log.WithFields(log.Fields{"tests": a.Tests}).Info("Finished Testing.")
     os.Exit(code)
 }
 
@@ -138,10 +179,18 @@ func (a *App) Path() (string, error) {
     return path, err
 }
 
-func NewApp(name string, config Config) (*App, error) {
+func NewApp(name string, config Config) *App {
     a := &App{
         Name: name,
         Config: config,
     }
-    return a, a.Parse()
+
+    log.SetLevel(log.InfoLevel)
+    err := a.Parse()
+    if err != nil {
+        log.Error(err.Error())
+        os.Exit(1)
+    }
+
+    return a
 }

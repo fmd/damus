@@ -2,15 +2,18 @@ package main
 
 import (
     "os"
+    "io"
     "fmt"
     "strings"
+    "io/ioutil"
     "path/filepath"
     "github.com/fsouza/go-dockerclient"
 )
 
 type Builder struct {
     Client *docker.Client
-    Name  string
+    Quiet  bool
+    Name   string
 }
 
 func (b *Builder) ImageExists(name string) (bool, error) {
@@ -31,7 +34,7 @@ func (b *Builder) ImageExists(name string) (bool, error) {
     return false, nil
 }
 
-func NewBuilder(endpoint string, name string) (*Builder, error) {
+func NewBuilder(endpoint string, name string, quiet bool) (*Builder, error) {
     c, err := docker.NewClient(endpoint)
     if err != nil {
         return nil, err
@@ -39,15 +42,23 @@ func NewBuilder(endpoint string, name string) (*Builder, error) {
     b := &Builder{
         Client: c,
         Name: name,
+        Quiet: quiet,
     }
     return b, nil
 }
 
 func (b *Builder) BuildOptions(step string) docker.BuildImageOptions {
+    var w io.Writer
+    if !b.Quiet {
+        w = os.Stdout
+    } else {
+        w = ioutil.Discard
+    }
+
     return docker.BuildImageOptions{
         Name: fmt.Sprintf("%s-%s", b.Name, step),
         ForceRmTmpContainer: true,
-        OutputStream: os.Stdout,
+        OutputStream: w,
         ContextDir: filepath.Join("apps", b.Name, step),
     }
 }

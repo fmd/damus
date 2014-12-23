@@ -12,14 +12,15 @@ type Config struct {
 	Endpoint         string
     VolumeDir        string
     InspectFrequency int
+    Quiet            bool
 }
 
 func usage() string {
 	return `Testradamus.
 
 Usage:
-	damus init <app> [-d <endpoint> | --docker-host=<endpoint>]
-	damus test <app> [-f <ms> | --freq=<ms>] [-v <dir> | --volume=<dir>] [-d <endpoint> | --docker-host=<endpoint>]
+	damus init <app> [-q | --quiet] [-d <endpoint> | --docker-host=<endpoint>]
+	damus test <app> [-q | --quiet] [-f <ms> | --freq=<ms>] [-v <dir> | --volume=<dir>] [-d <endpoint> | --docker-host=<endpoint>]
 	damus flush <app> [-b <name> | --build=<name>] [-d <endpoint> | --docker-host=<endpoint>]
 	damus --help
 	damus --version
@@ -27,6 +28,7 @@ Usage:
 Options:
 	-h --help                               Show this screen.
 	--version                               Show version.
+	-q --quiet                              Suppresses build output [default: false].
 	-f <ms> --freq=<ms>                     Inspection frequency in milliseconds [default: 1000].
 	-v <dir> --volume=<dir>                 Pass a volume to the containers [default: ./logs].
 	-b <name> --build=<name>                Flush up to and including the specified build.
@@ -57,6 +59,10 @@ func conf(args map[string]interface{}) (string, Config) {
 		c.Endpoint = args["--docker-host"].(string)
 	}
 
+	if args["--quiet"] != nil {
+		c.Quiet = args["--quiet"].(bool)
+	}
+
 	if args["--volume"] != nil {
 		c.VolumeDir = args["--volume"].(string)
 	}
@@ -68,28 +74,13 @@ func conf(args map[string]interface{}) (string, Config) {
 	return name, c
 }
 
-func flushTags(args map[string]interface{}) ([]string) {
-	if args["--base"].(bool) {
-		return []string{"base", "app", "test"}
-	}
-
-	if args["--app"].(bool) {
-		return []string{"app", "test"}
-	}
-
-	return []string{"test"}
-}
-
 func main() {
 	args, err := args()
 	if err != nil {
 		panic(err)
 	}
 
-	a, err := NewApp(conf(args))
-	if err != nil {
-		panic(err)
-	}
+	a := NewApp(conf(args))
 
 	if args["init"].(bool) {
 		a.Init()

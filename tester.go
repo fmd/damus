@@ -6,6 +6,7 @@ import (
     "errors"
     "hash/fnv"
     "encoding/hex"
+    log "github.com/Sirupsen/logrus"
     "github.com/fsouza/go-dockerclient"
 )
 
@@ -29,19 +30,30 @@ func TimeHash() string {
 }
 
 func NewTester(endpoint string, image string, build string, freq int) (*Tester, error) {
+    log.Info("Creating Tester...")
+
     c, err := docker.NewClient(endpoint)
     if err != nil {
         return nil, err
     }
 
+    stamp := TimeHash()
+
     t := &Tester{
         Client: c,
         Image: image,
         Build: build,
-        Stamp: TimeHash(),
+        Stamp: stamp,
         InspectFrequency: freq,
     }
 
+    log.WithFields(log.Fields{
+        "image": image,
+        "build": build,
+        "stamp": stamp,
+        "freq": freq,
+
+    }).Info("Created Tester.")
     return t, nil
 }
 
