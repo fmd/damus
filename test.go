@@ -6,9 +6,9 @@ import (
 )
 
 type Test struct {
-    Cmd       []string          `json:"cmd"`
-    Name      string            `json:"name"`
-    Container *docker.Container `json:"-"`
+    Cmd  []string `json:"cmd"`
+    Name string   `json:"name"`
+    Id   string   `json:"-"`
 }
 
 func (t Test) Config(image string, build string, stamp string) docker.CreateContainerOptions {

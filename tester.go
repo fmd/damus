@@ -1,11 +1,16 @@
 package main
 
 import (
+    "os"
     "fmt"
     "time"
+    "bytes"
+    "bufio"
     "errors"
     "hash/fnv"
+    "io/ioutil"
     "encoding/hex"
+    "path/filepath"
     log "github.com/Sirupsen/logrus"
     "github.com/fsouza/go-dockerclient"
 )
@@ -15,6 +20,7 @@ type Tester struct {
     Image            string
     Build            string
     Stamp            string
+    LogDir           string
     InspectFrequency int
 }
 
@@ -29,9 +35,7 @@ func TimeHash() string {
     return hex.EncodeToString(h.Sum(nil))
 }
 
-func NewTester(endpoint string, image string, build string, freq int) (*Tester, error) {
-    log.Info("Creating Tester...")
-
+func NewTester(endpoint string, image string, build string, logDir string, freq int) (*Tester, error) {
     c, err := docker.NewClient(endpoint)
     if err != nil {
         return nil, err
@@ -44,22 +48,31 @@ func NewTester(endpoint string, image string, build string, freq int) (*Tester, 
         Image: image,
         Build: build,
         Stamp: stamp,
+        LogDir: logDir,
         InspectFrequency: freq,
     }
 
-    log.WithFields(log.Fields{
-        "image": image,
-        "build": build,
-        "stamp": stamp,
-        "freq": freq,
+    //Create logs directory
+    t.LogDir = filepath.Join(logDir, image, stamp)
+    err = os.MkdirAll(t.LogDir, 0755)
+    if err != nil {
+        log.Error(err.Error())
+        os.Exit(1)
+    }
 
-    }).Info("Created Tester.")
+    log.WithFields(log.Fields{
+        "image": t.Image,
+        "build": t.Build,
+        "stamp": t.Stamp,
+        "logdir": t.LogDir,
+    }).Info("Damus has begun testing.")
+
     return t, nil
 }
 
 func (t *Tester) Check(s *Test) (int, error) {
     for {
-        c, err := t.Client.InspectContainer(s.Container.ID)
+        c, err := t.Client.InspectContainer(s.Id)
         if err != nil {
             return 1, err
         }
@@ -78,7 +91,7 @@ func (t *Tester) Check(s *Test) (int, error) {
 
 func (t *Tester) SaveImage(s *Test) error {
     opts := docker.CommitContainerOptions{
-        Container: s.Container.ID,
+        Container: s.Id,
         Repository: t.FullName(),
         Tag: "latest",
     }
@@ -113,19 +126,25 @@ func (t *Tester) Commit(s *Test) error {
     return nil
 }
 
-type Result struct {
+type TestResult struct {
+    Test *Test
     Code int
     Error error
 }
 
-func (t *Tester) StartTest(test Test, results chan Result) {
-    go func(test Test, results chan Result) {
-        r := Result{
+func (t *Tester) StartTest(test *Test, results chan TestResult) {
+    go func(test *Test, results chan TestResult) {
+        log.WithFields(log.Fields{
+            "test": test.Name,
+        }).Info("Started Test.")
+
+        r := TestResult{
+            Test: test,
             Code: 0,
             Error: nil,
         }
 
-        err := t.Create(&test)
+        err := t.Create(test)
         if err != nil {
             r.Code = 1
             r.Error = err
@@ -133,38 +152,51 @@ func (t *Tester) StartTest(test Test, results chan Result) {
             return
         }
 
-        err = t.Start(&test)
+        err = t.Start(test)
         if err != nil {
             r.Code = 1
             r.Error = err
             results <- r
             return
         }
-
-        r.Code, r.Error = t.Check(&test)
+        r.Code, r.Error = t.Check(test)
         results <- r
         return
     }(test, results)
 }
 
-func (t *Tester) Test(s []Test) (int, error) {
-    results := make(chan Result, len(s))
+func (t *Tester) Test(tests []Test) (int, error) {
+    results := make(chan TestResult, len(tests))
 
-    for _, test := range s {
-        t.StartTest(test, results)
+    for _, test := range tests {
+        s := &Test{ Cmd: test.Cmd, Name: test.Name, }
+        t.StartTest(s, results)
     }
 
     finishedTests := 0
 
-    for finishedTests != len(s) {
+    for finishedTests != len(tests) {
         select {
         case r := <-results:
+            err := t.Log(r.Test)
+
+            log.WithFields(log.Fields{
+                "test": r.Test.Name,
+                "code": r.Code,
+                "error": r.Error,
+                "log": filepath.Join(t.LogDir, r.Test.Name),
+            }).Info("Finished Test.")
+
+            if err != nil {
+                return r.Code, err
+            }
             if r.Code != 0 {
                 return r.Code, r.Error
             }
             if r.Error != nil {
                 return r.Code, r.Error
             }
+
             finishedTests++
         }
     }
@@ -172,15 +204,50 @@ func (t *Tester) Test(s []Test) (int, error) {
     return 0, nil
 }
 
+type LogResult struct {
+    Error error
+}
+
+func (t *Tester) Log(s *Test) error {
+    var w bytes.Buffer
+    writer := bufio.NewWriter(&w)
+    opts := docker.LogsOptions{
+        Container: s.Id,
+        OutputStream: writer,
+        ErrorStream: writer,
+        Follow: false,
+        Stdout: true,
+        Stderr: true,
+        Timestamps: true,
+        Tail: "",
+        RawTerminal: true,
+    }
+    err := t.Client.Logs(opts)
+    if err != nil {
+        return err
+    }
+    //Save logs to file.
+    err = ioutil.WriteFile(filepath.Join(t.LogDir, s.Name), w.Bytes(), 0644)
+    if err != nil {
+        return err
+    }
+
+    return nil
+}
+
 func (t *Tester) Create(s *Test) error {
-    var err error
-    s.Container, err = t.Client.CreateContainer(s.Config(t.Image, t.Build, t.Stamp))
-    return err
+    c, err := t.Client.CreateContainer(s.Config(t.Image, t.Build, t.Stamp))
+    if err != nil {
+        return err
+    }
+
+    s.Id = c.ID
+    return nil
 }
 
 func (t *Tester) Start(s *Test) error {
-    if s.Container == nil {
+    if len(s.Id) == 0 {
         return errors.New("A container has not been created for this test.")
     }
-    return t.Client.StartContainer(s.Container.ID, &docker.HostConfig{})
+    return t.Client.StartContainer(s.Id, &docker.HostConfig{})
 }

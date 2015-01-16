@@ -12,6 +12,7 @@ type Config struct {
 	Endpoint         string
     VolumeDir        string
     InspectFrequency int
+    NoCache          bool
     Quiet            bool
 }
 
@@ -19,7 +20,7 @@ func usage() string {
 	return `Testradamus.
 
 Usage:
-	damus init <app> [-q | --quiet] [-d <endpoint> | --docker-host=<endpoint>]
+	damus init <app> [-q | --quiet] [-n | --no-cache] [-d <endpoint> | --docker-host=<endpoint>]
 	damus test <app> [-q | --quiet] [-f <ms> | --freq=<ms>] [-v <dir> | --volume=<dir>] [-d <endpoint> | --docker-host=<endpoint>]
 	damus flush <app> [-b <name> | --build=<name>] [-d <endpoint> | --docker-host=<endpoint>]
 	damus --help
@@ -29,6 +30,7 @@ Options:
 	-h --help                               Show this screen.
 	--version                               Show version.
 	-q --quiet                              Suppresses build output [default: false].
+	-n --no-cache                           Suppresses build output [default: false].
 	-f <ms> --freq=<ms>                     Inspection frequency in milliseconds [default: 1000].
 	-v <dir> --volume=<dir>                 Pass a volume to the containers [default: ./logs].
 	-b <name> --build=<name>                Flush up to and including the specified build.
@@ -61,6 +63,10 @@ func conf(args map[string]interface{}) (string, Config) {
 
 	if args["--quiet"] != nil {
 		c.Quiet = args["--quiet"].(bool)
+	}
+
+	if args["--no-cache"] != nil {
+		c.NoCache = args["--no-cache"].(bool)
 	}
 
 	if args["--volume"] != nil {

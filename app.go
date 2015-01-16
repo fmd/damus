@@ -12,6 +12,7 @@ import (
 
 var AppJson string = "app.json"
 var AppDir  string = "apps"
+var LogDir  string = "logs"
 
 type App struct {
     Committer Test      `json:"committer"`
@@ -23,9 +24,7 @@ type App struct {
 }
 
 func (a *App) Build(builds Chain) {
-    log.WithFields(log.Fields{"builds": builds}).Info("Building...")
-
-    b, err := NewBuilder(a.Config.Endpoint, a.Name, a.Config.Quiet)
+    b, err := NewBuilder(a.Config.Endpoint, a.Name, a.Config.NoCache, a.Config.Quiet)
     if err != nil {
         log.Error(err.Error())
         os.Exit(1)
@@ -37,8 +36,6 @@ func (a *App) Build(builds Chain) {
             os.Exit(1)
         }
     }
-
-    log.WithFields(log.Fields{"builds": builds}).Info("Finished Building.")
 }
 
 func (a *App) Init() {
@@ -47,9 +44,7 @@ func (a *App) Init() {
 }
 
 func (a *App) Fix() {
-    log.Info("Fixing...")
-
-    b, err := NewBuilder(a.Config.Endpoint, a.Name, a.Config.Quiet)
+    b, err := NewBuilder(a.Config.Endpoint, a.Name, a.Config.NoCache, a.Config.Quiet)
     if err != nil {
         log.Error(err.Error())
         os.Exit(1)
@@ -70,14 +65,10 @@ func (a *App) Fix() {
             }
         }
     }
-
-    log.Info("Finished Fixing.")
 }
 
 func (a *App) Flush(builds Chain) {
-    log.WithFields(log.Fields{"builds": builds}).Info("Flushing...")
-
-    b, err := NewBuilder(a.Config.Endpoint, a.Name, a.Config.Quiet)
+    b, err := NewBuilder(a.Config.Endpoint, a.Name, a.Config.NoCache, a.Config.Quiet)
     if err != nil {
         log.Error(err.Error())
         os.Exit(1)
@@ -89,52 +80,51 @@ func (a *App) Flush(builds Chain) {
             os.Exit(1)
         }
     }
-
-    log.WithFields(log.Fields{"builds": builds}).Info("Finished Flushing.")
 }
 
 func (a *App) Test() {
     a.Fix()
 
-    log.WithFields(log.Fields{"tests": a.Tests}).Info("Testing...")
-
-    b, err := NewBuilder(a.Config.Endpoint, a.Name, a.Config.Quiet)
+    //Create builder
+    b, err := NewBuilder(a.Config.Endpoint, a.Name, a.Config.NoCache, a.Config.Quiet)
     if err != nil {
         log.Error(err.Error())
         os.Exit(1)
     }
 
+    //Ensure testable build
     final := a.Builds.Final().String()
     exists, err := b.ImageExists(fmt.Sprintf("%s-%s", a.Name, final))
     if err != nil {
         log.Error(err.Error())
         os.Exit(1)
     }
-
     if !exists {
         st := fmt.Sprintf("Image '%s-%s' doesn't exist. Try running `damus init` first.", a.Name, final)
         log.Error(st)
         os.Exit(1)
     }
 
-    t, err := NewTester(a.Config.Endpoint, a.Name, final, a.Config.InspectFrequency)
+    //Create tester
+    t, err := NewTester(a.Config.Endpoint, a.Name, final, LogDir, a.Config.InspectFrequency)
     if err != nil {
         log.Error(err.Error())
         os.Exit(1)
     }
 
+    //Run commit step
     err = t.Commit(&a.Committer)
     if err != nil {
         log.Error(err.Error())
         os.Exit(1)
     }
 
+    //Test the tests
     code, err := t.Test(a.Tests)
     if err != nil {
         log.Error(err.Error())
     }
 
-    log.WithFields(log.Fields{"tests": a.Tests}).Info("Finished Testing.")
     os.Exit(code)
 }
 
