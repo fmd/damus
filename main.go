@@ -1,19 +1,19 @@
 package main
 
 import (
+	"fmt"
 	"github.com/docopt/docopt-go"
 	"strconv"
-	"fmt"
 )
 
 var version string = "0.0.0"
 
 type Config struct {
 	Endpoint         string
-    VolumeDir        string
-    InspectFrequency int
-    NoCache          bool
-    Quiet            bool
+	VolumeDir        string
+	InspectFrequency int
+	NoCache          bool
+	Quiet            bool
 }
 
 func usage() string {

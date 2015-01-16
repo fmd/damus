@@ -2,26 +2,26 @@ package main
 
 type Chain []string
 
-func (c Chain) Get(link string) Chain{
-    p := -1
-    for i, l := range c {
-        if l == link {
-            p = i
-            break
-        }
-    }
+func (c Chain) Get(link string) Chain {
+	p := -1
+	for i, l := range c {
+		if l == link {
+			p = i
+			break
+		}
+	}
 
-    if p == -1 {
-        return Chain{}
-    }
+	if p == -1 {
+		return Chain{}
+	}
 
-    return c[p:]
+	return c[p:]
 }
 
 func (c Chain) Final() Chain {
-    return c[len(c)-1:]
+	return c[len(c)-1:]
 }
 
 func (c Chain) String() string {
-  return c[0]
+	return c[0]
 }
